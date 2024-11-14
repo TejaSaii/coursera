@@ -81,24 +81,6 @@ userRouter.post("/login", async (req, res) => {
 });
 
 userRouter.get(
-  "/courses/:id",
-  authenticateToken,
-  authorizeRole("user"),
-  (req, res) => {
-    res.json({ message: "some endpoint" });
-  }
-);
-
-userRouter.get(
-  "/courses",
-  authenticateToken,
-  authorizeRole("user"),
-  (req, res) => {
-    res.json({ message: "some endpoint" });
-  }
-);
-
-userRouter.get(
   "/purchases",
   authenticateToken,
   authorizeRole("user"),

@@ -35,6 +35,16 @@ const requiredDataSchema = loginDataSchema.extend({
   lastName: z.string().min(3).max(100),
 });
 
+const courseUpdateSchema = z
+  .object({
+    title: z.string().min(3).max(50).optional(),
+    description: z.string().min(3).max(100).optional(),
+    price: z.number().optional(),
+    imageUrl: z.string().url().optional(),
+    courseId: z.string(),
+  })
+  .strict();
+
 adminRouter.post("/signup", async (req, res) => {
   if (Object.keys(req.body).length === 0)
     return res.status(401).json({ message: "Invalid data passed" });
@@ -79,13 +89,9 @@ adminRouter.post("/login", async (req, res) => {
     if (!matched) {
       return res.status(403).json({ message: "Invalid creds" });
     }
-    const token = jwt.sign(
-      { id: admin._id, role: "admin" },
-      SECRET,
-      {
-        expiresIn: "1h",
-      }
-    );
+    const token = jwt.sign({ id: admin._id, role: "admin" }, SECRET, {
+      expiresIn: "1h",
+    });
 
     return res.json({ token });
   } catch (e) {
@@ -131,8 +137,28 @@ adminRouter.put(
   "/courses",
   authenticateToken,
   authorizeRole("admin"),
-  (req, res) => {
-    res.json({ message: "some endpoint" });
+  async (req, res) => {
+    const courseDetails = req.body;
+    const parsedDetails = courseUpdateSchema.safeParse(courseDetails);
+    if (parsedDetails.error) {
+      return res.status(400).json({ error: parsedDetails.error });
+    }
+    try {
+      const courses = await courseModel.find({
+        _id: courseDetails.courseId,
+        creatorId: req.headers.id,
+      });
+      if(courses.length === 0)
+        return res.status(400).json({message: "No course found with courseId: "+courseDetails.courseId});
+
+      await courseModel.updateOne(
+        { _id: courseDetails.courseId, creatorId: req.headers.id },
+        courseDetails
+      );
+      return res.json({ message: "Course updated successfully." });
+    } catch (e) {
+      return res.status(400).json({ message: "Course update failed" });
+    }
   }
 );
 
@@ -141,14 +167,13 @@ adminRouter.get(
   authenticateToken,
   authorizeRole("admin"),
   async (req, res) => {
-    try{
+    try {
       const courses = await courseModel.find({
-        creatorId: req.headers.id
+        creatorId: req.headers.id,
       });
-      return res.json({courses});
-    }
-    catch(e){
-      return res.status(500).json({message: "Unable to fetch courses"})
+      return res.json({ courses });
+    } catch (e) {
+      return res.status(500).json({ message: "Unable to fetch courses" });
     }
   }
 );
