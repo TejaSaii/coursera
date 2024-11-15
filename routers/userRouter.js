@@ -1,7 +1,7 @@
 const express = require("express");
 const userRouter = express.Router();
 const { authenticateToken, authorizeRole } = require("../middlewares/auth");
-const { userModel } = require("../db/db");
+const { userModel, purchaseModel, courseModel } = require("../db/db");
 const { z } = require("zod");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -10,17 +10,19 @@ require("dotenv").config();
 
 const SECRET = process.env.SECRET;
 
-const loginDataSchema = z.object({
-  email: z.string().max(100).email(),
-  password: z
-    .string()
-    .min(5)
-    .max(100)
-    .regex(/[A-Z]/)
-    .regex(/[a-z]/)
-    .regex(/[0-9]/)
-    .regex(/[!@#$%^&*()_+=-]/),
-}).strict();
+const loginDataSchema = z
+  .object({
+    email: z.string().max(100).email(),
+    password: z
+      .string()
+      .min(5)
+      .max(100)
+      .regex(/[A-Z]/)
+      .regex(/[a-z]/)
+      .regex(/[0-9]/)
+      .regex(/[!@#$%^&*()_+=-]/),
+  })
+  .strict();
 const requiredDataSchema = loginDataSchema.extend({
   firstName: z.string().min(3).max(100),
   lastName: z.string().min(3).max(100),
@@ -76,7 +78,7 @@ userRouter.post("/login", async (req, res) => {
 
     return res.json({ token });
   } catch (e) {
-    return res.status(500).json({ message: "Unable to fetch user data" });
+    return res.status(500).json({ message: "User not found!" });
   }
 });
 
@@ -84,8 +86,35 @@ userRouter.get(
   "/purchases",
   authenticateToken,
   authorizeRole("user"),
-  (req, res) => {
-    res.json({ message: "some endpoint" });
+  async (req, res) => {
+    let purchaseDocs;
+    try {
+      purchaseDocs = await purchaseModel.find({ userId: req.headers.id });
+    } catch (e) {
+      return res
+        .status(500)
+        .json({ message: "Unable to retrieve purchase details" });
+    }
+    const courseIds = purchaseDocs.map((doc) => doc.courseId);
+    let courses;
+    try {
+      courses = await courseModel.find({_id: {$in: courseIds}});
+    } catch (e) {
+      return res
+        .status(500)
+        .json({ message: "Unable to retrieve course details" });
+    }
+    courses = courses.map((course) => {
+      const currPurchaseDoc = purchaseDocs.find(
+        (doc) => doc.courseId.equals(course._id)
+      );
+      return {
+        courseId: currPurchaseDoc.courseId,
+        userId: currPurchaseDoc.userId,
+        courseDetails: course,
+      };
+    });
+    return res.json({courses});
   }
 );
 

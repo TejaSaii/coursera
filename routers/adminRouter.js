@@ -41,7 +41,6 @@ const courseUpdateSchema = z
     description: z.string().min(3).max(100).optional(),
     price: z.number().optional(),
     imageUrl: z.string().url().optional(),
-    courseId: z.string(),
   })
   .strict();
 
@@ -124,20 +123,15 @@ adminRouter.post(
   }
 );
 
-adminRouter.delete(
-  "/courses",
-  authenticateToken,
-  authorizeRole("admin"),
-  (req, res) => {
-    res.json({ message: "some endpoint" });
-  }
-);
-
 adminRouter.put(
-  "/courses",
+  "/courses/:courseId",
   authenticateToken,
   authorizeRole("admin"),
   async (req, res) => {
+    const courseId = req.params.courseId;
+    if(!courseId)
+      return res.status(400).json({message: "Course Id is missing for purchase"});
+
     const courseDetails = req.body;
     const parsedDetails = courseUpdateSchema.safeParse(courseDetails);
     if (parsedDetails.error) {
@@ -145,14 +139,14 @@ adminRouter.put(
     }
     try {
       const courses = await courseModel.find({
-        _id: courseDetails.courseId,
+        _id: courseId,
         creatorId: req.headers.id,
       });
       if(courses.length === 0)
-        return res.status(400).json({message: "No course found with courseId: "+courseDetails.courseId});
+        return res.status(400).json({message: "No course found with courseId: "+courseId});
 
       await courseModel.updateOne(
-        { _id: courseDetails.courseId, creatorId: req.headers.id },
+        { _id: courseId, creatorId: req.headers.id },
         courseDetails
       );
       return res.json({ message: "Course updated successfully." });

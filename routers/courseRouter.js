@@ -4,13 +4,27 @@ const { courseModel, purchaseModel } = require("../db/db");
 const { authenticateToken, authorizeRole } = require("../middlewares/auth");
 
 courseRouter.post(
-  "/purchase",
+  "/purchase/:courseId",
   authenticateToken,
   authorizeRole("user"),
   async (req, res) => {
-    const { courseId } = req.body;
+    const courseId = req.params.courseId;
     try {
-      const purchase = await purchaseModel.create({
+      const purchases = await purchaseModel.find({
+        userId: req.headers.id,
+        courseId,
+      });
+      if (purchases.length !== 0)
+        return res
+          .status(400)
+          .json({ message: "This course is already purchased" });
+    } catch (e) {
+      return res
+        .status(500)
+        .json({ message: "Unable to fetch purchases details" });
+    }
+    try {
+      await purchaseModel.create({
         courseId,
         userId: req.headers.id,
       });

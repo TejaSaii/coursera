@@ -8,14 +8,14 @@ const authenticateToken = (req, res, next) => {
   if(!token || !token.startsWith("Bearer ")){
     return res.status(403).json({message: "Invalid token"});
   }
-  jwt.verify(token.split(" ")[1], SECRET, (err, {id, role}) => {
+  jwt.verify(token.split(" ")[1], SECRET, (err, payload) => {
     if(err){
       return res.status(403).json({message: "Invalid token"});
     }
-    if(!id || !role)
+    if(!payload.id || !payload.role)
       return res.status(403).json({message: "Invalid token"});
-    req.headers.id = id;
-    req.headers.role = role;
+    req.headers.id = payload.id;
+    req.headers.role = payload.role;
     next();
   });
 };
